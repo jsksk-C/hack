@@ -1,0 +1,24 @@
+# Web敏感路径字典
+# 常见敏感文件和目录
+admin
+administrator
+login
+wp-admin
+phpmyadmin
+config
+backup
+database
+sql
+test
+debug
+api
+web
+www
+index.php
+admin.php
+config.php
+backup.sql
+.git
+.svn
+.env
+robots.txt

@@ -1,0 +1,66 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build active C file (gcc)",
+      "type": "shell",
+      "command": "gcc",
+      "args": [
+        "-g",
+        "-O0",
+        "-o",
+        "${fileDirname}/${fileBasenameNoExtension}.exe",
+        "${file}"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": ["$gcc"]
+    },
+    {
+      "label": "Run active C file",
+      "type": "shell",
+      "command": "${fileDirname}/${fileBasenameNoExtension}.exe",
+      "dependsOn": "Build active C file (gcc)",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Clean active C executable",
+      "type": "shell",
+      "command": "cmd",
+      "args": [
+        "/c",
+        "if exist ${fileDirname}\\${fileBasenameNoExtension}.exe del ${fileDirname}\\${fileBasenameNoExtension}.exe"
+      ],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+    {
+      "label": "Build safe_string (gcc)",
+      "type": "shell",
+      "command": "gcc",
+      "args": [
+        "-g",
+        "-O0",
+        "-o",
+        "${workspaceFolder}/safe_string.exe",
+        "${workspaceFolder}/safe_string.c"
+      ],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": ["$gcc"]
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+# 默认配置示例
+concurrency: 10
+timeout: 5
+nameservers:
+  - 8.8.8.8
+  - 1.1.1.1
+wordlist: data/subdomains.txt
+output:
+  format: json
+  path: results.json

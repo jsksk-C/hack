@@ -1,0 +1,120 @@
+# 增强版Web敏感路径字典
+# 常见管理后台
+admin
+administrator
+login
+manager
+admin/login
+admin.php
+wp-admin
+wp-login.php
+administrator/index.php
+user/login
+backend
+console
+dashboard
+control
+cp
+# 数据库管理
+phpmyadmin
+pma
+myadmin
+mysql
+db
+database
+adminer
+dbadmin
+sql
+webdb
+db/db-admin.php
+# 配置文件
+config
+configuration
+config.php
+config.php.bak
+config.json
+.env
+env
+settings.py
+config.xml
+web.config
+application.ini
+config.inc.php
+# 备份文件
+backup
+backups
+bak
+old
+temp
+tmp
+database.sql
+backup.sql
+www.zip
+site.tar.gz
+backup.zip
+backup.tar
+dump.sql
+# 版本控制
+.git
+.svn
+.hg
+.bzr
+CVS
+.git/config
+.svn/entries
+# 日志文件
+logs
+log
+error.log
+access.log
+debug.log
+# 测试文件
+test
+test.php
+info.php
+phpinfo.php
+debug
+demo
+example
+samples
+# API接口
+api
+api/v1
+rest
+graphql
+swagger
+swagger-ui
+api-docs
+doc
+docs
+# 敏感文件
+.htaccess
+robots.txt
+crossdomain.xml
+sitemap.xml
+.DS_Store
+thumbs.db
+package.json
+composer.json
+# 上传目录
+upload
+uploads
+files
+images
+attachments
+# 安装文件
+install
+setup
+install.php
+setup.php
+# 其他常见路径
+cgi-bin
+web-inf
+includes
+templates
+themes
+plugins
+modules
+vendor
+lib
+src

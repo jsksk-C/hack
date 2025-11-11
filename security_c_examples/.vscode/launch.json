@@ -1,0 +1,46 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run safe_string (integrated console)",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/safe_string.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "environment": [],
+      "externalConsole": false,
+      "preLaunchTask": "Build safe_string (gcc)",
+  "MIMode": "gdb",
+      "miDebuggerPath": "gdb",
+      "internalConsoleOptions": "neverOpen",
+      "logging": {
+        "engineLogging": true,
+        "trace": true,
+        "traceResponse": true
+      }
+    }
+    ,
+    {
+      "name": "Debug current C file",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${fileDirname}/${fileBasenameNoExtension}.exe",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${fileDirname}",
+      "environment": [],
+      "externalConsole": false,
+      "preLaunchTask": "Build active C file (gcc)",
+      "MIMode": "gdb",
+      "miDebuggerPath": "gdb",
+      "internalConsoleOptions": "neverOpen",
+      "logging": {
+        "engineLogging": true,
+        "trace": true,
+        "traceResponse": true
+      }
+    }
+  ]
+}
