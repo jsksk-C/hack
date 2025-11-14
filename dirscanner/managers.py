@@ -109,7 +109,7 @@ class ProxyManager:
         }
 
 class AdaptiveRateLimiter:
-    """自适应速率限制器"""
+    """自适应速率限制器（Windows优化版）"""
     
     def __init__(self, initial_rate: int = 10, min_rate: int = 1, max_rate: int = 50):
         self.current_rate = initial_rate  # 请求/秒
@@ -119,7 +119,10 @@ class AdaptiveRateLimiter:
         self.last_rate_adjustment = time.time()
         self.fail_count = 0
         self.success_count = 0
-        self.rate_adjustment_interval = 5  # 秒
+        self.rate_adjustment_interval = 3  # 秒（Windows下更频繁调整）
+        self.windows_optimization = True  # Windows系统优化模式
+        self.human_like_delays = [0.1, 0.2, 0.3, 0.5, 0.8, 1.2, 1.5, 2.0]  # 人类行为延迟模式
+        self.last_human_delay = 0.5
     
     def should_delay(self) -> bool:
         """检查是否应该延迟请求"""
@@ -151,25 +154,36 @@ class AdaptiveRateLimiter:
             self.success_count = 0  # 重置成功计数
     
     def _adjust_rate(self):
-        """自适应调整请求速率"""
+        """自适应调整请求速率（Windows优化）"""
         current_time = time.time()
         
         # 检查是否应该调整速率
         if current_time - self.last_rate_adjustment < self.rate_adjustment_interval:
             return
         
-        # 基于失败率调整速率
-        if self.fail_count >= 3 and self.current_rate > self.min_rate:
-            # 失败较多，降低速率
-            self.current_rate = max(self.min_rate, int(self.current_rate * 0.8))
-            self.last_rate_adjustment = current_time
-        elif self.success_count >= 20 and self.current_rate < self.max_rate:
-            # 成功较多，提高速率
-            self.current_rate = min(self.max_rate, int(self.current_rate * 1.1))
-            self.last_rate_adjustment = current_time
+        # Windows系统下的保守策略
+        if self.windows_optimization:
+            if self.fail_count >= 2 and self.current_rate > self.min_rate:  # 更早降速
+                # 失败较多，大幅降低速率
+                self.current_rate = max(self.min_rate, int(self.current_rate * 0.6))
+                self.last_rate_adjustment = current_time
+                self.fail_count = 0  # 重置计数器
+            elif self.success_count >= 10 and self.current_rate < self.max_rate:  # 更谨慎提速
+                # 成功较多，小幅提高速率
+                self.current_rate = min(self.max_rate, int(self.current_rate * 1.05))
+                self.last_rate_adjustment = current_time
+                self.success_count = 0  # 重置计数器
+        else:
+            # 标准策略
+            if self.fail_count >= 3 and self.current_rate > self.min_rate:
+                self.current_rate = max(self.min_rate, int(self.current_rate * 0.8))
+                self.last_rate_adjustment = current_time
+            elif self.success_count >= 20 and self.current_rate < self.max_rate:
+                self.current_rate = min(self.max_rate, int(self.current_rate * 1.1))
+                self.last_rate_adjustment = current_time
     
     def get_delay_time(self) -> float:
-        """获取延迟时间"""
+        """获取延迟时间（包含人类行为模拟）"""
         current_time = time.time()
         
         # 计算应该延迟的时间
@@ -179,7 +193,12 @@ class AdaptiveRateLimiter:
             delay = 1.0 - (current_time - oldest_timestamp)
             return max(0.0, delay)
         
-        return 0.0
+        # 添加随机人类行为延迟
+        import random
+        human_delay = random.choice(self.human_like_delays)
+        self.last_human_delay = human_delay * random.uniform(0.5, 1.5)  # 添加随机变异
+        
+        return self.last_human_delay
     
     def get_current_rate(self) -> int:
         """获取当前速率"""

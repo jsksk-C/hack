@@ -10,6 +10,7 @@ import signal
 import sys
 import traceback
 import random
+import re
 from typing import List, Optional, Dict, Set
 from urllib.parse import urljoin, urlparse
 from datetime import datetime
@@ -53,13 +54,27 @@ class AdvancedDirectoryScanner:
         self.requests_failed = 0
         self.meaningful_responses = 0
         
-        # 初始化默认头信息
+        # 初始化默认头信息（增强反检测）
+        self.user_agent_pool = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Edge/120.0.0.0 Safari/537.36'
+        ]
+        
         self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Connection': 'keep-alive',
-            'Cache-Control': 'max-age=0'
+            'User-Agent': random.choice(self.user_agent_pool),
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+            'Accept-Language': random.choice(['en-US,en;q=0.9', 'zh-CN,zh;q=0.9,en;q=0.8', 'ja-JP,ja;q=0.9,en;q=0.8']),
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': random.choice(['keep-alive', 'close']),
+            'Cache-Control': random.choice(['max-age=0', 'no-cache', 'no-store']),
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': random.choice(['none', 'same-origin'])
         }
         
         # 合并自定义头信息
@@ -133,7 +148,7 @@ class AdvancedDirectoryScanner:
             return False
     
     def _load_wordlist(self) -> List[str]:
-        """加载字典列表"""
+        """加载字典列表（增强随机化）"""
         words = []
         
         # 如果提供了字典文件路径，则加载文件
@@ -151,12 +166,35 @@ class AdvancedDirectoryScanner:
             generator = DynamicWordlistGenerator(self.target_url)
             words = generator.generate_target_specific_words()
         
+        # 随机打乱顺序，避免可预测的模式
+        import random
+        random.shuffle(words)
+        
+        # 添加随机前缀/后缀变化
+        variations = []
+        for word in words[:min(100, len(words))]:  # 只对前100个进行变化
+            if random.random() < 0.1:  # 10%概率添加变化
+                prefix = random.choice(['', '/', './', '../', '%2f', '%2F'])
+                suffix = random.choice(['', '/', '.html', '.php', '.asp', '.jsp'])
+                variations.append(prefix + word + suffix)
+        
+        words.extend(variations)
+        random.shuffle(words)  # 再次打乱
+        
         return words
     
     async def scan_url(self, url: str) -> Optional[ScanResult]:
-        """扫描单个URL"""
+        """扫描单个URL（增强混合模式+分层过滤+反检测）"""
         if self.should_stop:
             return None
+        
+        # 预过滤：基于URL模式快速过滤
+        if not self._should_scan_url(url):
+            return None
+        
+        # 随机化请求头
+        if random.random() < 0.3:  # 30%概率更换User-Agent
+            self.headers['User-Agent'] = random.choice(self.user_agent_pool)
         
         # 检查速率限制
         if self.rate_limiter.should_delay():
@@ -253,6 +291,47 @@ class AdvancedDirectoryScanner:
         
         return result
     
+    def _should_scan_url(self, url: str) -> bool:
+        """预过滤URL，基于分层策略"""
+        # 高风险路径优先扫描
+        high_priority_patterns = [
+            r'admin', r'login', r'panel', r'config', r'backup',
+            r'\.env', r'\.git', r'\.svn', r'phpmyadmin',
+            r'api', r'upload', r'file', r'database'
+        ]
+        
+        # 低风险路径延迟扫描或跳过
+        low_priority_patterns = [
+            r'\.css', r'\.js$', r'\.jpg', r'\.png', r'\.gif',
+            r'\.ico', r'images', r'img', r'assets', r'static'
+            r'favicon', r'robots', r'sitemap'
+        ]
+        
+        url_lower = url.lower()
+        
+        # 如果包含高风险模式，优先扫描
+        for pattern in high_priority_patterns:
+            if re.search(pattern, url_lower, re.IGNORECASE):
+                return True
+        
+        # 如果包含低风险模式，基于扫描阶段决定是否扫描
+        if hasattr(self, 'scan_phase'):
+            if self.scan_phase == 'initial':
+                # 初始阶段跳过低风险路径
+                for pattern in low_priority_patterns:
+                    if re.search(pattern, url_lower, re.IGNORECASE):
+                        return False
+            elif self.scan_phase == 'comprehensive':
+                # 全面扫描阶段扫描所有路径
+                return True
+        
+        # 默认扫描
+        return True
+    
+    def set_scan_phase(self, phase: str):
+        """设置扫描阶段"""
+        self.scan_phase = phase
+    
     def _extract_title(self, content: bytes) -> str:
         """从HTML内容中提取标题"""
         try:
@@ -272,7 +351,7 @@ class AdvancedDirectoryScanner:
         return ''
     
     async def run_scan(self) -> List[ScanResult]:
-        """运行扫描"""
+        """运行扫描（混合模式+分层过滤）"""
         # 加载字典
         words = self._load_wordlist()
         print(f"开始扫描，共 {len(words)} 个路径")
@@ -280,25 +359,88 @@ class AdvancedDirectoryScanner:
         # 记录开始时间
         self.start_time = time.time()
         
-        # 创建任务
-        tasks = []
+        # 分层扫描策略
+        print("阶段1: 初始扫描（高风险路径优先）")
+        self.set_scan_phase('initial')
+        
+        # 第一阶段：扫描高风险路径
+        high_priority_words = []
+        low_priority_words = []
+        
         for word in words:
+            if self._is_high_priority_word(word):
+                high_priority_words.append(word)
+            else:
+                low_priority_words.append(word)
+        
+        print(f"高风险路径: {len(high_priority_words)} 个")
+        print(f"其他路径: {len(low_priority_words)} 个")
+        
+        # 扫描高风险路径
+        tasks = []
+        for word in high_priority_words:
             if self.should_stop:
                 break
                 
-            # 构建URL
-            if word.startswith('/'):
-                url = self.target_url[:-1] + word  # 如果路径已以/开头，就不再添加/
-            else:
-                url = urljoin(self.target_url, word)
-            
+            url = self._build_url(word)
             task = asyncio.create_task(self.scan_url(url))
             tasks.append(task)
             self.requests_sent += 1
             
-            # 打印进度
-            if self.requests_sent % 100 == 0:
-                print(f"已发送 {self.requests_sent}/{len(words)} 个请求")
+            if self.requests_sent % 50 == 0:
+                print(f"高风险扫描进度: {self.requests_sent}/{len(high_priority_words)} 个请求")
+        
+        # 等待第一阶段完成
+        for task in asyncio.as_completed(tasks):
+            if self.should_stop:
+                break
+            try:
+                result = await task
+                if result:
+                    self.results.append(result)
+                    if result.is_meaningful:
+                        self._print_result(result)
+            except Exception as e:
+                print(f"处理任务时出错: {str(e)}")
+        
+        # 第二阶段：全面扫描（如果第一阶段结果较少）
+        meaningful_count = len([r for r in self.results if r.is_meaningful])
+        if meaningful_count < 10 and not self.should_stop:
+            print(f"\n阶段2: 全面扫描（发现 {meaningful_count} 个有意义响应，继续全面扫描）")
+            self.set_scan_phase('comprehensive')
+            
+            tasks = []
+            for word in low_priority_words:
+                if self.should_stop:
+                    break
+                    
+                url = self._build_url(word)
+                task = asyncio.create_task(self.scan_url(url))
+                tasks.append(task)
+                self.requests_sent += 1
+                
+                if self.requests_sent % 100 == 0:
+                    print(f"全面扫描进度: {self.requests_sent}/{len(words)} 个请求")
+            
+            # 等待第二阶段完成
+            for task in asyncio.as_completed(tasks):
+                if self.should_stop:
+                    break
+                try:
+                    result = await task
+                    if result:
+                        self.results.append(result)
+                        if result.is_meaningful:
+                            self._print_result(result)
+                except Exception as e:
+                    print(f"处理任务时出错: {str(e)}")
+        else:
+            print(f"\n跳过全面扫描，已发现 {meaningful_count} 个有意义响应")
+        
+        # 记录结束时间
+        self.end_time = time.time()
+        
+        return self.results
         
         # 等待任务完成
         for task in asyncio.as_completed(tasks):
@@ -324,6 +466,27 @@ class AdvancedDirectoryScanner:
                     task.cancel()
         
         return self.results
+    
+    def _is_high_priority_word(self, word: str) -> bool:
+        """判断是否为高优先级词汇"""
+        high_priority_patterns = [
+            r'admin', r'login', r'panel', r'config', r'backup',
+            r'\.env', r'\.git', r'\.svn', r'phpmyadmin',
+            r'api', r'upload', r'file', r'database', r'phpmyadmin'
+        ]
+        
+        word_lower = word.lower()
+        for pattern in high_priority_patterns:
+            if re.search(pattern, word_lower, re.IGNORECASE):
+                return True
+        return False
+    
+    def _build_url(self, word: str) -> str:
+        """构建URL"""
+        if word.startswith('/'):
+            return self.target_url[:-1] + word  # 如果路径已以/开头，就不再添加/
+        else:
+            return urljoin(self.target_url, word)
     
     async def run_scan_with_timeout(self, timeout: Optional[int] = None) -> List[ScanResult]:
         """带超时的扫描运行"""

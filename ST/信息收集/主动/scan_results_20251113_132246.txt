@@ -1,0 +1,16 @@
+扫描目标: http://testphp.vulnweb.com
+扫描时间: 2025-11-13 13:22:46
+------------------------------------------------------------
+发现的有效路径:
+[200] http://testphp.vulnweb.com/admin (大小: 262 bytes)
+[200] http://testphp.vulnweb.com/CVS (大小: 595 bytes)
+[200] http://testphp.vulnweb.com/crossdomain.xml (大小: 224 bytes)
+[200] http://testphp.vulnweb.com/images (大小: 377 bytes)
+[403] http://testphp.vulnweb.com/cgi-bin (大小: 276 bytes)
+[200] http://testphp.vulnweb.com/vendor (大小: 268 bytes)
+------------------------------------------------------------
+统计信息:
+总共测试: 107 个路径
+发现有效: 6 个路径
+扫描耗时: 56.89 秒
+平均速度: 1.88 个/秒

@@ -2,6 +2,8 @@ import requests
 import sys
 import time
 import urllib3
+import argparse
+import os
 from urllib.parse import urljoin
 
 # 禁用SSL警告
@@ -11,6 +13,14 @@ def enhanced_scan():
     """
     增强版Web敏感目录探测工具
     """
+    # 设置命令行参数
+    parser = argparse.ArgumentParser(description='增强版Web敏感目录探测工具')
+    parser.add_argument('-u', '--url', help='目标URL (例如: http://testphp.vulnweb.com)')
+    parser.add_argument('-d', '--dict', help='字典文件路径', default='')
+    parser.add_argument('--auto', action='store_true', help='自动模式，使用默认参数进行扫描')
+    
+    args = parser.parse_args()
+    
     print("=" * 60)
     print("       增强版Web敏感目录探测工具")
     print("=" * 60)
@@ -26,28 +36,45 @@ def enhanced_scan():
     }
     
     try:
-        target_url = input("请输入目标URL (例如: http://testphp.vulnweb.com): ").strip()
-        if not target_url:
-            print("错误：URL不能为空！")
-            return
-            
-        # 自动补全协议
-        if not target_url.startswith(('http://', 'https://')):
-            target_url = 'http://' + target_url
-        
-        # 验证目标是否可访问
-        print("正在验证目标可访问性...")
-        try:
-            test_response = requests.get(target_url, headers=headers, timeout=10, verify=False)
-            print(f"目标响应状态: {test_response.status_code}")
-        except Exception as e:
-            print(f"目标不可访问: {e}")
-            return
-            
-        dict_file = input("请输入字典文件路径 (直接回车使用增强字典): ").strip()
-        if dict_file == "":
+        # 自动模式使用示例URL
+        if args.auto:
+            target_url = "http://testphp.vulnweb.com"
             dict_file = "enhanced_dict.txt"
             create_enhanced_dict()  # 创建增强字典
+            print(f"自动模式已启用，目标URL: {target_url}")
+        else:
+            # 命令行参数模式
+            if args.url:
+                target_url = args.url
+            else:
+                # 交互式输入
+                target_url = input("请输入目标URL (例如: http://testphp.vulnweb.com): ").strip()
+                if not target_url:
+                    print("错误：URL不能为空！")
+                    return
+            
+            # 自动补全协议
+            if not target_url.startswith(('http://', 'https://')):
+                target_url = 'http://' + target_url
+            
+            # 验证目标是否可访问
+            print("正在验证目标可访问性...")
+            try:
+                test_response = requests.get(target_url, headers=headers, timeout=10, verify=False)
+                print(f"目标响应状态: {test_response.status_code}")
+            except Exception as e:
+                print(f"目标不可访问: {e}")
+                return
+                
+            # 处理字典文件
+            if args.dict:
+                dict_file = args.dict
+            else:
+                # 交互式输入
+                dict_file = input("请输入字典文件路径 (直接回车使用增强字典): ").strip()
+                if dict_file == "":
+                    dict_file = "enhanced_dict.txt"
+                    create_enhanced_dict()  # 创建增强字典
             
     except KeyboardInterrupt:
         print("\n用户中断操作")
@@ -125,6 +152,38 @@ def enhanced_scan():
     print("扫描完成！详细结果:")
     print("-" * 80)
     
+    # 生成结果文件名，使用时间戳
+    # 获取脚本所在目录，将结果保存在同一目录
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    result_filename = os.path.join(script_dir, f"scan_results_{time.strftime('%Y%m%d_%H%M%S')}.txt")
+    
+    try:
+        # 将结果保存到文件
+        with open(result_filename, 'w', encoding='utf-8') as f:
+            f.write(f"扫描目标: {target_url}\n")
+            f.write(f"扫描时间: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+            f.write("-" * 60 + "\n")
+            
+            if found_paths:
+                f.write("发现的有效路径:\n")
+                for url, status, size in found_paths:
+                    f.write(f"[{status}] {url} (大小: {size} bytes)\n")
+            else:
+                f.write("未发现有效路径\n")
+            
+            f.write("-" * 60 + "\n")
+            f.write(f"统计信息:\n")
+            f.write(f"总共测试: {len(paths_to_scan)} 个路径\n")
+            f.write(f"发现有效: {len(found_paths)} 个路径\n")
+            f.write(f"扫描耗时: {scan_time:.2f} 秒\n")
+            f.write(f"平均速度: {len(paths_to_scan)/scan_time:.2f} 个/秒\n")
+        
+        print(f"结果已保存到: {result_filename}")
+        
+    except Exception as e:
+        print(f"保存结果文件失败: {e}")
+    
+    # 在终端显示结果
     if found_paths:
         for url, status, size in found_paths:
             print(f"[{status}] {url} (大小: {size} bytes)")

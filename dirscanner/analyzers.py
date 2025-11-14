@@ -109,7 +109,7 @@ class SmartResponseAnalyzer:
         return hashlib.md5('|'.join(features).encode()).hexdigest()
     
     def is_meaningful_response(self, result: ScanResult, content) -> bool:
-        """判断响应是否有意义"""
+        """判断响应是否有意义（增强反检测绕过）"""
         if result.status == 404:
             return False
             
@@ -129,6 +129,19 @@ class SmartResponseAnalyzer:
         
         for fp in self.fingerprints:
             if current_fp == fp:
+                return False
+        
+        # 检测WAF页面（增强反WAF检测）
+        waf_indicators = [
+            'cloudflare', 'incapsula', 'sucuri', 'akamai', 'f5 silverline',
+            'distil networks', 'stackpath', 'aws waf', 'azure waf',
+            'blocked', 'access denied', 'forbidden', 'security check'
+        ]
+        
+        content_lower = content_str.lower()
+        if any(indicator in content_lower for indicator in waf_indicators):
+            # WAF页面通常长度较短且有特定关键词
+            if len(content_str) < 2000 and any(word in content_lower for word in ['blocked', 'denied', 'forbidden']):
                 return False
         
         if self.baseline_404 and result.content_length > 0:
@@ -176,24 +189,46 @@ class ResultAnalyzer:
         }
     
     def assess_risk(self, url: str, status: int, content_length: int) -> str:
-        """评估风险等级"""
+        """评估风险等级（增强版混合模式）"""
         url_lower = url.lower()
         
+        # 状态码优先判断
         if status == 403:
             return 'high'
         elif status == 401:
             return 'medium'
+        elif status in [301, 302, 307, 308]:
+            # 重定向状态需要进一步分析
+            if any(pattern in url_lower for pattern in ['admin', 'login', 'panel', 'config']):
+                return 'medium'
+            return 'info'
+        elif status == 404:
+            return 'info'
+        elif 500 <= status < 600:
+            return 'low'  # 服务器错误通常风险较低
         
+        # 基于URL模式的风险评估
         for level, patterns in self.risk_patterns.items():
             for pattern in patterns:
                 if re.search(pattern, url_lower):
                     return level
         
+        # 基于内容长度的风险评估
         if status == 200:
             if content_length == 0:
                 return 'low'
-            elif content_length > 1000000:
+            elif content_length > 1000000:  # 1MB以上
                 return 'medium'
+            elif content_length > 10000:    # 10KB以上
+                return 'low'
+        
+        # 基于文件扩展名的风险评估
+        if re.search(r'\.(php|asp|aspx|jsp|py|pl)$', url_lower):
+            return 'medium'
+        elif re.search(r'\.(html|htm)$', url_lower):
+            return 'info'
+        elif re.search(r'\.(js|css|jpg|png|gif|ico)$', url_lower):
+            return 'info'
         
         return 'info'
     
